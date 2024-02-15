@@ -38,27 +38,27 @@ def authenticate_with_meraki(username, password, organization_id):
     else:
         raise MerakiAPIError(f"Authentication failed. Status Code: {response.status_code}")
 
-def get_networks(organization_id):
-    """Retrieves a list of networks within a Meraki organization.
+# def get_networks(organization_id):
+#     """Retrieves a list of networks within a Meraki organization.
 
-    Args:
-        organization_id: The ID of the Meraki organization.
+#     Args:
+#         organization_id: The ID of the Meraki organization.
 
-    Returns:
-        A list of networks (likely as dictionaries containing network details).
+#     Returns:
+#         A list of networks (likely as dictionaries containing network details).
 
-    Raises:
-        MerakiAPIError: If there's an issue with the API request.
-    """
+#     Raises:
+#         MerakiAPIError: If there's an issue with the API request.
+#     """
 
-    endpoint = f'/organizations/{organization_id}/networks'
-    url = MERAKI_API_BASE_URL + endpoint
+#     endpoint = f'/organizations/{organization_id}/networks'
+#     url = MERAKI_API_BASE_URL + endpoint
 
-    headers = {'X-Cisco-Meraki-API-Key': MERAKI_API_KEY}
+#     headers = {'X-Cisco-Meraki-API-Key': MERAKI_API_KEY}
 
-    response = requests.get(url, headers=headers)
+#     response = requests.get(url, headers=headers)
 
-    if response.status_code == 200:
-        return response.json()
-    else:
-        raise MerakiAPIError(f"Error fetching networks. Status Code: {response.status_code}")
+#     if response.status_code == 200:
+#         return response.json()
+#     else:
+#         raise MerakiAPIError(f"Error fetching networks. Status Code: {response.status_code}")
