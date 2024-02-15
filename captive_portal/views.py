@@ -1,17 +1,23 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
-from .forms import SplashForm
+from .forms import SplashForm, UserProfileForm
 from .models import UserProfile
-from .forms import UserProfileForm
-import requests
-import os
-from dotenv import load_dotenv
+from .meraki_utils import authenticate_with_meraki
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def success(request):
+    """
+    Renders the success page.
+    """
+    redirect_url = request.session.pop('redirect_url', '/')
+    return redirect(redirect_url)
 
 def splash_page(request):
     """
     Renders the splash page and handles form submission.
-    If the form is valid and the user already exists, redirects to the success page.
-    If the form is valid and the user does not exist, redirects to the signup page.
+    If the form is valid and the user is authenticated, redirects to the success page.
+    If the form is invalid or the user is not authenticated, renders the splash page with appropriate error messages.
     """
     if request.method == 'POST':
         form = SplashForm(request.POST)
@@ -19,14 +25,17 @@ def splash_page(request):
             username = form.cleaned_data['username']
             email = form.cleaned_data['email']
 
-            if authenticate_with_meraki(username, password):
-                user = UserProfile.objects.get_or_create(username=username, email=email)[0]
-                login(request, user) 
+            user = authenticate_with_meraki(username, email)
+            if user:
+                login(request, user)
                 return redirect('captive_portal:success')
             else:
                 form.add_error(None, 'Invalid credentials. Please try again.')
     else:
         form = SplashForm()
+
+    # Store the URL the user was trying to access before being redirected to the splash page
+    request.session['redirect_url'] = request.GET.get('next', '/')
 
     return render(request, 'captive_portal/splash.html', {'form': form})
 
@@ -38,38 +47,9 @@ def sign_up(request):
     if request.method == 'POST':
         form = UserProfileForm(request.POST)
         if form.is_valid():
-            form.save() 
+            form.save()
             return redirect('captive_portal:success')
     else:
         form = UserProfileForm()
+
     return render(request, 'captive_portal/sign_up.html', {'form': form})
-
-
-def success(request):
-    """
-    Renders the success page.
-    """
-    return render(request, 'captive_portal/success.html')
-
-def authenticate_with_meraki(username, email):
-    """
-    Authenticates the user with the Meraki API using the provided username and email.
-
-    Args:
-        username (str): The username of the user.
-        email (str): The email address of the user.
-
-    Returns:
-        bool: True if the authentication is successful, False otherwise.
-    """
-    load_dotenv()
-
-    meraki_api_url = 'https://api.meraki.com/api/v0/some/endpoint'
-    meraki_api_key = os.getenv('MERAKI_API_KEY')
-
-    headers = {'X-Cisco-Meraki-API-Key': meraki_api_key}
-    payload = {'username': username, 'password': email}
-
-    response = requests.post(meraki_api_url, headers=headers, data=payload)
-
-    return response.status_code == 200
