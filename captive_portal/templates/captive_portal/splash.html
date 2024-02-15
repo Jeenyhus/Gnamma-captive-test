@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidae-Cafe</title>
+</head>
+<body>
+    <h1>Login to Vidae-Cafe Wi-Fi</h1>
+    <p>Please enter your information to connect to the internet <a href="https://www.gnamma.net">Powered by Gnamma Technologies</a>.</p>
+    <form method="post">
+        {% csrf_token %}
+        <!-- CSRF token for form submission security -->
+        <label for="username">Username:</label><br>
+        <input type="text" id="username" name="username" required><br>
+        <!-- Input field for username -->
+        <label for="email">Email:</label><br>
+        <input type="email" id="email" name="email" required><br>
+        <!-- Input field for email -->
+        <input type="checkbox" id="agreed_to_terms" name="agreed_to_terms" required>
+        <label for="agreed_to_terms">I agree to the terms and conditions</label><br>
+        <!-- Checkbox for agreeing to terms and conditions -->
+        <button type="submit">Connect</button>
+        <br>      
+        <!-- Link to signup page for users who don't have an account -->
+        <a href="#">Don't have an account? Signup</a>
+    </form>
+</body>
+</html>
