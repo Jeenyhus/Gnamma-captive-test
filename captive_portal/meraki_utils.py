@@ -1,64 +1,117 @@
-import requests
+import meraki
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Initialize Meraki API
+MERAKI_API_KEY = os.getenv('MERAKI_API_KEY')
+dashboard = meraki.DashboardAPI(MERAKI_API_KEY)
+
+def get_organization_id():
+    """Retrieves the organization ID."""
+    try:
+        organizations = dashboard.organizations.getOrganizations()
+        if organizations:
+            return organizations[0]['id']
+        else:
+            return None
+    except meraki.APIError as e:
+        print(f"Failed to fetch organization ID: {e}")
+        return None
+
+def get_network_id(organization_id, network_name):
+    """Retrieves the network ID given the organization ID and network name."""
+    try:
+        networks = dashboard.organizations.getOrganizationNetworks(organization_id)
+        for network in networks:
+            if network['name'] == network_name:
+                return network['id']
+        return None
+    except meraki.APIError as e:
+        print(f"Failed to fetch network ID: {e}")
+        return None
+
+def get_network_name(organization_id, network_id):
+    """Retrieves the network name given the organization ID and network ID."""
+    try:
+        network = dashboard.networks.getNetwork(organization_id, network_id)
+        return network['name'] if network else None
+    except meraki.APIError as e:
+        print(f"Failed to fetch network name: {e}")
+        return None
+
+def authenticate_meraki_user(network_id, email, password):
+    """Authenticates a Meraki authentication user."""
+    try:
+        payload = {
+            'email': email,
+            'password': password
+        }
+        response = dashboard.networks.getNetworkMerakiAuthUser(network_id, email)
+        if response:
+            return True
+        else:
+            return False
+        
+    except meraki.APIError as e:
+        print(f"Failed to authenticate Meraki Auth user: {e}")
+        return False 
+
+def grant_network_access(user, network_name):
+    """Grants network access to a user, creating a new Meraki Auth User if needed."""
+    try:
+        # Fetch organization ID
+        organization_id = get_organization_id()
+
+        # Fetch network ID
+        network_id = get_network_id(organization_id, network_name)
+
+        if not network_id:
+            print("Network not found.")
+            return False
+
+        # First, attempt to authenticate to see if the user exists
+        if authenticate_meraki_user(network_id, user['email'], user['password']):
+            print("User is already authenticated.")
+            return True
+
+        # If not, then create a new user
+        response = dashboard.networks.createNetworkMerakiAuthUser(
+            network_id, 
+            user['email'],
+            user['name'],
+            password=user['password'] 
+        )
+        
+        if response:
+            print("Meraki Auth User created successfully.")
+            return True
+        else:
+            print("Failed to create Meraki Auth User.")
+            return False
+
+    except meraki.APIError as e:
+        print(f"Failed to grant network access: {e}")
+        return False
 
 
-# MERAKI_API_BASE_URL = 'https://api.meraki.com/api/v0'  
-# MERAKI_API_KEY = os.environ.get('MERAKI_API_KEY')
+def revoke_network_access(user, network_name):
+    """Revokes network access from a user."""
+    try:
+        organization_id = get_organization_id()
+        network_id = get_network_id(organization_id, network_name)
 
-# Error Handling 
-class MerakiAPIError(Exception):
-    """Custom exception for errors encountered with Meraki API interactions."""
-    pass
+        if not network_id:
+            print("Network not found.")
+            return False
 
-def authenticate_with_meraki(username, password, organization_id):
-    """Authenticates a user with the Meraki captive portal API.
-
-    Args:
-        username: The user's username.
-        password: The user's password.
-        organization_id: The ID of the Meraki organization.
-
-    Returns:
-        True if authentication is successful, False otherwise.
-
-    Raises:
-        MerakiAPIError: If there's an issue with the API request.
-    """
-
-    endpoint = '/authenticate'
-    url = MERAKI_API_BASE_URL + endpoint
-
-    headers = {'X-Cisco-Meraki-API-Key': MERAKI_API_KEY}
-    payload = {'username': username, 'password': password}
-
-    response = requests.post(url, headers=headers, data=payload)
-
-    if response.status_code == 200: 
-        return True
-    else:
-        raise MerakiAPIError(f"Authentication failed. Status Code: {response.status_code}")
-
-# def get_networks(organization_id):
-#     """Retrieves a list of networks within a Meraki organization.
-
-#     Args:
-#         organization_id: The ID of the Meraki organization.
-
-#     Returns:
-#         A list of networks (likely as dictionaries containing network details).
-
-#     Raises:
-#         MerakiAPIError: If there's an issue with the API request.
-#     """
-
-#     endpoint = f'/organizations/{organization_id}/networks'
-#     url = MERAKI_API_BASE_URL + endpoint
-
-#     headers = {'X-Cisco-Meraki-API-Key': MERAKI_API_KEY}
-
-#     response = requests.get(url, headers=headers)
-
-#     if response.status_code == 200:
-#         return response.json()
-#     else:
-#         raise MerakiAPIError(f"Error fetching networks. Status Code: {response.status_code}")
+        response = dashboard.networks.deleteNetworkMerakiAuthUser(network_id, user['email'])
+        if response:
+            return True
+        else:
+            return False
+    except meraki.APIError as e:
+        print(f"Failed to revoke network access: {e}")
+        return False
