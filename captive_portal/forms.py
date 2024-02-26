@@ -1,31 +1,39 @@
 from django import forms
 from .models import UserProfile
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 
 class UserProfileForm(forms.ModelForm):
     class Meta:
         model = UserProfile
         fields = '__all__'
 
-        
-class SplashForm(forms.ModelForm):
+class SignUpForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput)
 
     class Meta:
-        model = UserProfile
-        fields = ['username', 'email', 'agreed_to_terms']
+        model = User
+        fields = ('username', 'email', 'password')  # Include necessary fields for signup
 
-        widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter your username'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter your email'}),
-            'agreed_to_terms': forms.CheckboxInput(),
-        }
+class SplashForm(forms.Form):
+    email = forms.EmailField()  # Add email field
+    password = forms.CharField(widget=forms.PasswordInput)
 
-    def clean_agreed_to_terms(self):
+    def clean(self):
+        cleaned_data = super().clean()
+        email = cleaned_data.get('email')
+        password = cleaned_data.get('password')
+
+        if not email or not password:
+            raise forms.ValidationError("Email and password are required.")
+
+    def authenticate_user(self):
         """
-        Custom validation method for the 'agreed_to_terms' field.
-        Raises a ValidationError if the user has not agreed to the terms.
+        Authenticates the user using provided email and password.
         """
-        agreed_to_terms = self.cleaned_data['agreed_to_terms']
-        if not agreed_to_terms:
-            raise forms.ValidationError("You must agree to the terms to proceed.")
-        return agreed_to_terms
+        email = self.cleaned_data['email']
+        password = self.cleaned_data['password']
+        user = authenticate(email=email, password=password)
+        if user is None:
+            raise forms.ValidationError("Invalid email or password.")
+        return user
