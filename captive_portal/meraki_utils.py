@@ -9,109 +9,61 @@ load_dotenv()
 MERAKI_API_KEY = os.getenv('MERAKI_API_KEY')
 dashboard = meraki.DashboardAPI(MERAKI_API_KEY)
 
-def get_organization_id():
-    """Retrieves the organization ID."""
+def create_user(username, password, role, network_id):
+    """
+    Creates a user on a specified Meraki network.
+
+    Args:
+        username (str): The username for the new user.
+        password (str): The password for the new user.
+        role (str): The role to assign to the user (e.g., 'admin', 'observer').
+        network_id (str): The ID of the Meraki network where the user will be created.
+
+    Raises:
+         Exception: If any errors occur during user creation.
+    """
+
     try:
-        organizations = dashboard.organizations.getOrganizations()
-        if organizations:
-            return organizations[0]['id']
-        else:
-            return None
-    except meraki.APIError as e:
-        print(f"Failed to fetch organization ID: {e}")
-        return None
 
-def get_network_id(organization_id, network_name):
-    """Retrieves the network ID given the organization ID and network name."""
-    try:
-        networks = dashboard.organizations.getOrganizationNetworks(organization_id)
-        for network in networks:
-            if network['name'] == network_name:
-                return network['id']
-        return None
-    except meraki.APIError as e:
-        print(f"Failed to fetch network ID: {e}")
-        return None
+        # Construct email address
+        email = username  # Assuming username can be used as email
 
-def get_network_name(organization_id, network_id):
-    """Retrieves the network name given the organization ID and network ID."""
-    try:
-        network = dashboard.networks.getNetwork(organization_id, network_id)
-        return network['name'] if network else None
-    except meraki.APIError as e:
-        print(f"Failed to fetch network name: {e}")
-        return None
-
-def authenticate_meraki_user(network_id, email, password):
-    """Authenticates a Meraki authentication user."""
-    try:
-        payload = {
-            'email': email,
-            'password': password
-        }
-        response = dashboard.networks.getNetworkMerakiAuthUser(network_id, email)
-        if response:
-            return True
-        else:
-            return False
-        
-    except meraki.APIError as e:
-        print(f"Failed to authenticate Meraki Auth user: {e}")
-        return False 
-
-def grant_network_access(user, network_name):
-    """Grants network access to a user, creating a new Meraki Auth User if needed."""
-    try:
-        # Fetch organization ID
-        organization_id = get_organization_id()
-
-        # Fetch network ID
-        network_id = get_network_id(organization_id, network_name)
-
-        if not network_id:
-            print("Network not found.")
-            return False
-
-        # First, attempt to authenticate to see if the user exists
-        if authenticate_meraki_user(network_id, user['email'], user['password']):
-            print("User is already authenticated.")
-            return True
-
-        # If not, then create a new user
-        response = dashboard.networks.createNetworkMerakiAuthUser(
-            network_id, 
-            user['email'],
-            user['name'],
-            password=user['password'] 
+        # Create the Meraki network user
+        result = dashboard.networks.createNetworkUser(
+            network_id, email, name=username, password=password, roles=[role] 
         )
-        
-        if response:
-            print("Meraki Auth User created successfully.")
-            return True
-        else:
-            print("Failed to create Meraki Auth User.")
-            return False
 
-    except meraki.APIError as e:
-        print(f"Failed to grant network access: {e}")
-        return False
+        print("User '{}' created successfully on network '{}'.".format(username, network_id))
 
+    except meraki.exceptions.APIError as e:
+        print(f"Meraki API error: {e}")
+        raise Exception(f"Failed to create user: {e}") 
+    except Exception as e: 
+        print(f"General error: {e}")
+        raise Exception(f"Failed to create user: {e}") 
+    
 
-def revoke_network_access(user, network_name):
-    """Revokes network access from a user."""
+def authenticate_user_in_network(username, password, network_id):
+    """
+    Function to authenticate a user in the Meraki network.
+    """
     try:
-        organization_id = get_organization_id()
-        network_id = get_network_id(organization_id, network_name)
-
-        if not network_id:
-            print("Network not found.")
-            return False
-
-        response = dashboard.networks.deleteNetworkMerakiAuthUser(network_id, user['email'])
-        if response:
-            return True
-        else:
-            return False
-    except meraki.APIError as e:
-        print(f"Failed to revoke network access: {e}")
+        # Check if the user exists in the network
+        users = dashboard.get_network_users(network_id)
+        for user in users:
+            if user['email'] == username:
+                # User found in the network, authenticate
+                if user['password'] == password:
+                    # Authentication successful
+                    return True
+                else:
+                    # Authentication failed (wrong password)
+                    return False
+        
+        # User not found in the network
+        return False
+    
+    except Exception as e:
+        # Handle errors appropriately
+        print("Error authenticating user '{}': {}".format(username, str(e)))
         return False
