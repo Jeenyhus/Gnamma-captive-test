@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Vidae Cafe{% endblock %}</title>
     <!-- Bootstrap CSS -->
+    {% load bootstrap4 %}
     {% bootstrap_css %}
     <!-- Custom styles -->
     <style>
-
         body {
             padding-bottom: 60px;
         }
@@ -16,12 +16,13 @@
             position: fixed;
             bottom: 0;
             width: 100%;
-            height: 60px; 
+            height: 60px;
             background-color: #f8f9fa;
             text-align: center;
-            line-height: 60px; 
+            line-height: 60px;
         }
     </style>
+    <!-- Load other static files here if needed -->
 </head>
 <body>
     <!-- Page content -->
@@ -40,3 +41,4 @@
     {% bootstrap_javascript %}
 </body>
 </html>
+
