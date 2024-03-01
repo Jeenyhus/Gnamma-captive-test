@@ -1,38 +1,44 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser, Group, Permission
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 
-class User(AbstractUser):
-    """
-    Represents a user in the system.
-    """
-    email = models.EmailField(unique=True)
-    username = models.CharField(max_length=20, unique=True)
+class MyUserManager(BaseUserManager):
+    def create_user(self, email, password=None):
+        if not email:
+            raise ValueError('Email is required')
 
-    class Meta:
-        # Ensure that the custom User model is used
-        swappable = 'AUTH_USER_MODEL'
+        user = self.model(
+            email=self.normalize_email(email),
+        )
 
-    def __str__(self):
-        """
-        Returns a string representation of the user.
-        """
-        return self.username
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None):
+        user = self.create_user(
+            email=email,
+            password=password,
+        )
+        user.is_admin = True
+        user.save(using=self._db)
+        return user
     
-    groups = models.ManyToManyField(Group, related_name='custom_user_groups')
-    user_permissions = models.ManyToManyField(Permission, related_name='custom_user_permissions')
+class GuestUser(AbstractBaseUser):
+    name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
+    email_verified = models.BooleanField(default=False)
+    password = models.CharField(max_length=100)
+    password_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['name, email, email_verified, password, password_verified']
 
-class UserProfile(models.Model):
-    """
-    Represents a user profile in the system.
-    """
-    user = models.OneToOneField(get_user_model(), on_delete=models.CASCADE)
-    network_id = models.CharField(max_length=100)
-    network_name = models.CharField(max_length=100)
+    objects = MyUserManager()
 
     def __str__(self):
-        """
-        Returns a string representation of the user profile.
-        """
-        return self.user.username
+        return self.email
+    
+    @property
+    def ssid(self):
+        return self.email.split('@')[0]

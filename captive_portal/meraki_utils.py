@@ -1,69 +1,46 @@
-import meraki
 import os
-from dotenv import load_dotenv
+import meraki
+import logging
 
-# Load environment variables
-load_dotenv()
+logger = logging.getLogger(__name__)
 
-# Initialize Meraki API
 MERAKI_API_KEY = os.getenv('MERAKI_API_KEY')
-dashboard = meraki.DashboardAPI(MERAKI_API_KEY)
+MERAKI_NETWORK_ID = os.getenv('NETWORK_ID')
+BASE_URL = 'https://api.meraki.com/api/v1'
 
-def create_user(username, password, role, network_id):
-    """
-    Creates a user on a specified Meraki network.
-
-    Args:
-        username (str): The username for the new user.
-        password (str): The password for the new user.
-        role (str): The role to assign to the user (e.g., 'admin', 'observer').
-        network_id (str): The ID of the Meraki network where the user will be created.
-
-    Raises:
-         Exception: If any errors occur during user creation.
-    """
-
+def authenticate_with_meraki(email):
     try:
+        dashboard = meraki.DashboardAPI(api_key=MERAKI_API_KEY)
 
-        # Construct email address
-        email = username  # Assuming username can be used as email
+        # organization ID
+        guests = dashboard.networks.getNetworkGuests(MERAKI_NETWORK_ID) 
 
-        # Create the Meraki network user
-        result = dashboard.networks.createNetworkUser(
-            network_id, email, name=username, password=password, roles=[role] 
+        for guest in guests:
+            if guest['email'] == email:
+                return True
+
+        return False 
+    except meraki.APIError as e:
+        logger.error(f"Meraki API Error: {e}")
+        return False 
+
+
+def create_meraki_guest_user(user):
+    try:
+        dashboard = meraki.DashboardAPI(api_key=MERAKI_API_KEY)
+        result = dashboard.guests.createNetworkGuest(
+            MERAKI_NETWORK_ID,
+            user.email,
+            password=user.password, 
+            name=user.get_full_name() or user.username,
+            authorization_zone='Guest Zone'
         )
 
-        print("User '{}' created successfully on network '{}'.".format(username, network_id))
-
-    except meraki.exceptions.APIError as e:
-        print(f"Meraki API error: {e}")
-        raise Exception(f"Failed to create user: {e}") 
-    except Exception as e: 
-        print(f"General error: {e}")
-        raise Exception(f"Failed to create user: {e}") 
-    
-
-def authenticate_user_in_network(username, password, network_id):
-    """
-    Function to authenticate a user in the Meraki network.
-    """
-    try:
-        # Check if the user exists in the network
-        users = dashboard.get_network_users(network_id)
-        for user in users:
-            if user['email'] == username:
-                # User found in the network, authenticate
-                if user['password'] == password:
-                    # Authentication successful
-                    return True
-                else:
-                    # Authentication failed (wrong password)
-                    return False
-        
-        # User not found in the network
-        return False
-    
-    except Exception as e:
-        # Handle errors appropriately
-        print("Error authenticating user '{}': {}".format(username, str(e)))
-        return False
+        if 'id' in result:
+            user.meraki_guest_id = result['id']
+            user.save()
+        else:
+            raise Exception("Failed to create Meraki guest user. API Response: {}".format(result))
+    except meraki.APIError as e:
+        logger.error(f"Meraki API Error: {e}")
+        raise Exception("Failed to create Meraki guest user.")

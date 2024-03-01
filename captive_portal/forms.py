@@ -1,21 +1,25 @@
 from django import forms
-from .models import UserProfile
-from django.contrib.auth.models import User
+from .models import GuestUser
 
+class SignupForm(forms.ModelForm):
+    verify_password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
 
-class UserProfileForm(forms.ModelForm):
     class Meta:
-        model = UserProfile
-        fields = '__all__'
+        model = GuestUser
+        fields = ['name', 'email', 'email_verified', 'password', 'password_verified']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'email_verified': forms.EmailInput(attrs={'class': 'form-control'}),
+            'password': forms.PasswordInput(attrs={'class': 'form-control'}),
+            'password_verified': forms.PasswordInput(attrs={'class': 'form-control'}),
+        }
 
-class SignUpForm(forms.Form):
-    username = forms.CharField(max_length=100)
-    password = forms.CharField(widget=forms.PasswordInput)
-    # Set default value for the role field to 'member'
-    role = forms.ChoiceField(choices=[('guest', 'Guest'), ('member', 'Member'), ('admin', 'Admin')], initial='member')
-    network_id = forms.CharField(max_length=100)
-    network_name = forms.CharField(max_length=100)
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data['password'] != cleaned_data['password_verified']:
+            raise forms.ValidationError("Passwords don't match")
 
-class AuthenticationForm(forms.Form):
-    username = forms.CharField(max_length=100)
-    password = forms.CharField(widget=forms.PasswordInput)
+class LoginForm(forms.Form):
+    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
+    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))

@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-md-6 offset-md-3">
+      <h2 class="text-center mb-4">Welcome to Vida e Caffe</h2>
+      <p>Enter your email and password to use the internet</p>
+      <!-- Display error message -->
+      {% if error_message %}
+        <div class="alert alert-danger" role="alert">
+          {{ error_message }}
+        </div>
+      {% endif %}
+      <form method="post" id="loginForm">
+        {% csrf_token %}
+        <div class="form-group">
+          {{ form.email.label_tag }}
+          {{ form.email }}
+        </div>
+        <div class="form-group">
+          {{ form.password.label_tag }}
+          {{ form.password }}
+        </div>
+        <button type="submit" class="btn btn-primary btn-block mt-4">Login</button>
+      </form>
+      <div class="mt-3">
+        <p>Don't have an account? <a href="{% url 'sign_up_vc' %}">Register</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function() {
+    'use strict';
+    window.addEventListener('load', function() {
+      var form = document.getElementById('loginForm');
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
+    }, false);
+  })();
+</script>
+{% endblock %}
+

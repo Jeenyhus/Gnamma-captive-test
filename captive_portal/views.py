@@ -1,66 +1,56 @@
 from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.contrib.auth import authenticate, login
-from .forms import SignUpForm, AuthenticationForm
-from .meraki_utils import create_user, authenticate_user_in_network
-from django.http import HttpResponse
-from .models import UserProfile, User
+from .forms import SignupForm, LoginForm
+from .meraki_utils import authenticate_with_meraki, create_meraki_guest_user
+import logging
 
+
+logger = logging.getLogger(__name__)
+
+def splash(request):
+    if request.method == 'POST':
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            password = form.cleaned_data['password']
+
+            if authenticate_with_meraki(email, password):
+                user = authenticate(request, email=email)
+                if user is not None:
+                    login(request, user)
+                    return redirect('success')
+                else:
+                    messages.error(request, "Django authentication failed.")
+            else:
+                messages.error(request, "Invalid Meraki credentials.")
+    else:
+        form = LoginForm()
+
+    return render(request, 'splash.html', {'form': form})
+
+
+def signup(request):
+    success_message = ''
+    if request.method == 'POST':
+        form = SignupForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data['password'])
+            user.save()
+
+            try:
+                create_meraki_guest_user(user)
+                success_message = 'An email with your credentials has been sent. Please check your inbox.'
+                messages.success(request, success_message)
+            except Exception as e:
+                error_message = f'Failed to create Meraki guest user: {e}'
+                messages.error(request, error_message)
+                logger.error(error_message)
+    else:
+        form = SignupForm()
+
+    return render(request, 'sign_up.html', {'form': form, 'success_message': success_message})
 
 def success(request):
-    """
-    Renders the success page.
-    """
-    redirect_url = request.session.pop('redirect_url', '/')
-    return redirect(redirect_url)
-
-def splash_page(request):
-    """
-    Renders the splash page and handles form submission.
-    If the form is valid and the user is authenticated, redirects to the success page.
-    If the form is invalid or the user is not authenticated, renders the splash page with appropriate error messages.
-    """
-    if request.method == 'POST':
-        form = AuthenticationForm(request.POST)
-        if form.is_valid():
-            # Process the form data
-            username = form.cleaned_data['username']
-            password = form.cleaned_data['password']
-            network_id = form.cleaned_data['network_id']
-
-            # Authenticate user using Meraki API
-            if authenticate_user_in_network(username, password, network_id):
-                # Authentication successful, redirect to success page
-                return redirect('success')  # Replace 'success_url' with the actual URL
-            else:
-                # Authentication failed, render the splash page with an error message
-                return render(request, 'splash_page.html', {'form': form, 'error_message': 'Invalid credentials'})
-
-    else:
-        # If request method is not POST, render the splash page with the authentication form
-        form = AuthenticationForm()
-    
-    return render(request, 'captive_portal/splash.html', {'form': form})
-
-def sign_up_mk(request):
-    """
-    Renders the signup page and handles form submission.
-    If the form is valid, saves the form data and redirects to the success page.
-    """
-    if request.method == 'POST':
-        form = SignUpForm(request.POST)
-        if form.is_valid():
-            # Process the form data
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            role = form.cleaned_data.get('role')
-            network_id = form.cleaned_data.get('network_id')
-            network_name = form.cleaned_data.get('network_name')
-
-            # Call function to handle user sign-up and Meraki API interaction
-            create_user(username, password, role, network_id, network_name)
-
-            return HttpResponse("User created successfully")
-    else:
-        form = SignUpForm()
-    
-    return render(request, 'captive_portal/sign_up.html', {'form': form})
+    return render(request, 'success.html')
