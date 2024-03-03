@@ -66,7 +66,7 @@ def getUser(network_id):
     """
     return meraki_dashboard.networks.getNetworkMerakiAuthUsers(network_id)
 
-def delete_user(network_id, user_id):
+def deleteUser(network_id, user_id):
     """
     Delete a user from the network.
     Args:
